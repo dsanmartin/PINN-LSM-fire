@@ -135,3 +135,7 @@ Each experiment creates a timestamped folder (format `YYYYMMDDHHMM`) in `example
 - `config.log`: Complete configuration used for the experiment
 - `phi_comparison.png`: Initial and final level set function
 - `perimeter_comparison.png`: Initial and final fire fronts (φ=0 contours)
+
+## Examples
+
+See [examples/EXAMPLES.md](examples/EXAMPLES.md) for detailed simulation scenarios with different wind conditions (no wind, south wind, east wind, northeast wind) and corresponding results.
