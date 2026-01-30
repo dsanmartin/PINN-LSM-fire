@@ -5,10 +5,10 @@ from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 
-from plfire.plot import plot_perimeter_comparison, plot_phi_comparison
-from plfire.lsm import LevelSetConfig
-from plfire.train import ExperimentConfig, train
-from plfire.utils import Domain, TrainConfig
+from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison
+from wildfire.lsm import LevelSetConfig
+from wildfire.train import ExperimentConfig, train
+from wildfire.utils import Domain, TrainConfig
 
 
 def _build_parser() -> ArgumentParser:

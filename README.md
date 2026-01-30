@@ -1,5 +1,7 @@
-# PINNs-LSM-fire
-Physics-Informed Neural Networks for Level Set Method applied to fires.
+# PINN-Wildfire
+Physics-Informed Neural Networks for wildfire simulation. 
+
+At the moment, we use only the Level Set Method (LSM) to track the fire perimeter, but we plan to add the conservation equations. Some progress with conservation equations in [THIS REPO](https://github.com/dsanmartin/pinn-examples).
 
 ## Mathematical Formulation
 
@@ -30,11 +32,15 @@ where:
 - $\mathcal{L}_{\text{BC}}$: boundary condition loss
 - $\mathcal{L}_{\text{IC}}$: initial condition loss (burning region initialization)
 
+### TO DO
+
+Add conservation equations and data (simulated + real). 
+
 ## Package structure
 
 ```
 src/
-  plfire/
+  wildfire/
     __init__.py     # Main exports
     lsm.py          # Level Set PDE and configuration
     pinn.py         # Neural network architecture
@@ -104,9 +110,9 @@ vy = 1.0              # y-component of advection velocity
 ### Programmatic usage
 
 ```python
-from plfire.train import ExperimentConfig, train
-from plfire.utils import Domain, TrainConfig
-from plfire.lsm import LevelSetConfig
+from wildfire.train import ExperimentConfig, train
+from wildfire.utils import Domain, TrainConfig
+from wildfire.lsm import LevelSetConfig
 
 cfg = ExperimentConfig(
     domain=Domain(x_min=0, x_max=10, y_min=0, y_max=10, t_min=0, t_max=1),
@@ -120,7 +126,7 @@ model = train(cfg)
 ### Visualization
 
 ```python
-from plfire.plot import plot_perimeter_comparison, plot_phi_comparison
+from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison
 
 # Plot initial and final fire perimeters
 plot_perimeter_comparison(model, cfg.domain, "perimeter.png", lsm=cfg.lsm)

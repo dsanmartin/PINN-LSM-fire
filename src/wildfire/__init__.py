@@ -1,4 +1,4 @@
-"""plfire: PINNs for Level Set Method."""
+"""wildfire: PINNs for wildfire simulation."""
 
 from .pinn import PINN
 from .plot import (
