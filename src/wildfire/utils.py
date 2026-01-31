@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Union
 
 import torch
 
@@ -49,8 +49,10 @@ class TrainConfig:
     n_interior: int = 10_000
     n_boundary: int = 2_000
     n_initial: int = 2_000
-    lr: float = 1e-3
-    epochs: int = 5_000
+    epochs_adam: int = 5000  # If set, use Adam for this many epochs
+    epochs_lbfgs: int = 1000  # If set, use LBFGS for this many epochs after Adam
+    lr_adam: float = 1e-1  # Learning rate for Adam, falls back to lr if not set
+    lr_lbfgs: float = 1.0  # Learning rate for LBFGS
     weight_pde: float = 1.0
     weight_bc: float = 1.0
     weight_ic: float = 1.0
@@ -67,8 +69,17 @@ def gradient(outputs: torch.Tensor, inputs: torch.Tensor) -> torch.Tensor:
     )[0]
 
 
-def split_xyz_t(xyt: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    x = xyt[:, 0:1]
-    y = xyt[:, 1:2]
-    t = xyt[:, 2:3]
-    return x, y, t
+def split_xyz_t(xyzt: torch.Tensor) -> Union[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+    if xyzt.shape[1] == 3:
+        x = xyzt[:, 0:1]
+        y = xyzt[:, 1:2]
+        t = xyzt[:, 2:3]
+        return x, y, t
+    elif xyzt.shape[1] == 4:
+        x = xyzt[:, 0:1]
+        y = xyzt[:, 1:2]
+        z = xyzt[:, 2:3]
+        t = xyzt[:, 3:4]
+        return x, y, z, t
+    else:
+        raise ValueError("Input tensor must have shape (N, 3) or (N, 4)")

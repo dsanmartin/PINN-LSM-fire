@@ -5,10 +5,13 @@ from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 
-from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison
+from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison, plot_temperature_comparison, plot_fuel_fraction_comparison
 from wildfire.logging_utils import write_config_log
 from wildfire.pde import PDEConfig
+from wildfire.lsm import LSMConfig
+from wildfire.asensio import AsensioConfig
 from wildfire.train import ExperimentConfig, train
+from wildfire.pinn import MLPConfig
 from wildfire.utils import Domain, TrainConfig
 
 
@@ -29,8 +32,10 @@ def _build_parser() -> ArgumentParser:
     parser.add_argument("--n-interior", type=int, default=None)
     parser.add_argument("--n-boundary", type=int, default=None)
     parser.add_argument("--n-initial", type=int, default=None)
-    parser.add_argument("--lr", type=float, default=None)
-    parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--lr-adam", type=float, default=None)
+    parser.add_argument("--lr-lbfgs", type=float, default=None)
+    parser.add_argument("--epochs-adam", type=int, default=None)
+    parser.add_argument("--epochs-lbfgs", type=int, default=None)
     parser.add_argument("--weight-pde", type=float, default=None)
     parser.add_argument("--weight-bc", type=float, default=None)
     parser.add_argument("--weight-ic", type=float, default=None)
@@ -60,7 +65,8 @@ def main() -> None:
 
     base_domain = Domain()
     base_train = TrainConfig()
-    base_lsm = PDEConfig()
+    base_lsm_config = LSMConfig()  # Default LSM config
+    base_asensio_config = AsensioConfig()  # Default Asensio config
     cfg_file = _read_config(args.config)
 
     if cfg_file is not None and cfg_file.has_section("domain"):
@@ -78,41 +84,73 @@ def main() -> None:
             n_interior=cfg_file.getint("train", "n_interior", fallback=base_train.n_interior),
             n_boundary=cfg_file.getint("train", "n_boundary", fallback=base_train.n_boundary),
             n_initial=cfg_file.getint("train", "n_initial", fallback=base_train.n_initial),
-            lr=cfg_file.getfloat("train", "lr", fallback=base_train.lr),
-            epochs=cfg_file.getint("train", "epochs", fallback=base_train.epochs),
+            lr_adam=cfg_file.getfloat("train", "lr_adam", fallback=base_train.lr_adam),
+            epochs_adam=cfg_file.getint("train", "epochs_adam", fallback=base_train.epochs_adam),
+            epochs_lbfgs=cfg_file.getint("train", "epochs_lbfgs", fallback=base_train.epochs_lbfgs),
+            lr_lbfgs=cfg_file.getfloat("train", "lr_lbfgs", fallback=base_train.lr_lbfgs),
             weight_pde=cfg_file.getfloat("train", "weight_pde", fallback=base_train.weight_pde),
             weight_bc=cfg_file.getfloat("train", "weight_bc", fallback=base_train.weight_bc),
             weight_ic=cfg_file.getfloat("train", "weight_ic", fallback=base_train.weight_ic),
         )
 
     if cfg_file is not None and cfg_file.has_section("initial"):
-        base_lsm = PDEConfig(
+        base_lsm_config = LSMConfig(
             center=(
-                cfg_file.getfloat("initial", "center_x", fallback=base_lsm.center[0]),
-                cfg_file.getfloat("initial", "center_y", fallback=base_lsm.center[1]),
+                cfg_file.getfloat("initial", "center_x", fallback=base_lsm_config.center[0]),
+                cfg_file.getfloat("initial", "center_y", fallback=base_lsm_config.center[1]),
             ),
-            radius=cfg_file.getfloat("initial", "radius", fallback=base_lsm.radius),
-            speed=base_lsm.speed,
-            epsilon=base_lsm.epsilon,
-            vx=base_lsm.vx,
-            vy=base_lsm.vy,
-            r0=base_lsm.r0,
-            cf=base_lsm.cf,
-            bc_type=base_lsm.bc_type,
+            radius=cfg_file.getfloat("initial", "radius", fallback=base_lsm_config.radius),
+            speed=base_lsm_config.speed,
+            epsilon=base_lsm_config.epsilon,
+            vx=base_lsm_config.vx,
+            vy=base_lsm_config.vy,
+            r0=base_lsm_config.r0,
+            cf=base_lsm_config.cf,
+            bc_type=base_lsm_config.bc_type,
         )
 
     if cfg_file is not None and cfg_file.has_section("pde"):
-        base_lsm = PDEConfig(
-            center=base_lsm.center,
-            radius=base_lsm.radius,
-            speed=cfg_file.getfloat("pde", "speed", fallback=base_lsm.speed),
-            epsilon=cfg_file.getfloat("pde", "epsilon", fallback=base_lsm.epsilon),
-            vx=cfg_file.getfloat("pde", "vx", fallback=base_lsm.vx),
-            vy=cfg_file.getfloat("pde", "vy", fallback=base_lsm.vy),
-            r0=cfg_file.getfloat("pde", "r0", fallback=base_lsm.r0),
-            cf=cfg_file.getfloat("pde", "cf", fallback=base_lsm.cf),
-            bc_type=cfg_file.get("pde", "bc_type", fallback=base_lsm.bc_type),
-        )
+        model_type = cfg_file.get("pde", "model_type", fallback="lsm")
+        
+        if model_type.lower() == "asensio":
+            asensio_cfg = AsensioConfig(
+                T0=cfg_file.getfloat("pde", "T0", fallback=base_asensio_config.T0),
+                T_inf=cfg_file.getfloat("pde", "T_inf", fallback=base_asensio_config.T_inf),
+                center=(
+                    cfg_file.getfloat("initial", "center_x", fallback=base_asensio_config.center[0]),
+                    cfg_file.getfloat("initial", "center_y", fallback=base_asensio_config.center[1]),
+                ),
+                radius=cfg_file.getfloat("initial", "radius", fallback=base_asensio_config.radius),
+                vx=cfg_file.getfloat("pde", "vx", fallback=base_asensio_config.vx),
+                vy=cfg_file.getfloat("pde", "vy", fallback=base_asensio_config.vy),
+                E=cfg_file.getfloat("pde", "E", fallback=base_asensio_config.E),
+                R=cfg_file.getfloat("pde", "R", fallback=base_asensio_config.R),
+                Y_f=cfg_file.getfloat("pde", "Y_f", fallback=base_asensio_config.Y_f),
+                SIGMA=cfg_file.getfloat("pde", "SIGMA", fallback=base_asensio_config.SIGMA),
+                delta=cfg_file.getfloat("pde", "delta", fallback=base_asensio_config.delta),
+                T_ign=cfg_file.getfloat("pde", "T_ign", fallback=base_asensio_config.T_ign),
+                H_R=cfg_file.getfloat("pde", "H_R", fallback=base_asensio_config.H_R),
+                bc_type=cfg_file.get("pde", "bc_type", fallback=base_asensio_config.bc_type),
+            )
+            base_lsm = PDEConfig(model_type="asensio", asensio_config=asensio_cfg)
+        else:
+            lsm_cfg = LSMConfig(
+                speed=cfg_file.getfloat("pde", "speed", fallback=base_lsm_config.speed),
+                epsilon=cfg_file.getfloat("pde", "epsilon", fallback=base_lsm_config.epsilon),
+                center=(
+                    cfg_file.getfloat("initial", "center_x", fallback=base_lsm_config.center[0]),
+                    cfg_file.getfloat("initial", "center_y", fallback=base_lsm_config.center[1]),
+                ),
+                radius=cfg_file.getfloat("initial", "radius", fallback=base_lsm_config.radius),
+                vx=cfg_file.getfloat("pde", "vx", fallback=base_lsm_config.vx),
+                vy=cfg_file.getfloat("pde", "vy", fallback=base_lsm_config.vy),
+                r0=cfg_file.getfloat("pde", "r0", fallback=base_lsm_config.r0),
+                cf=cfg_file.getfloat("pde", "cf", fallback=base_lsm_config.cf),
+                bc_type=cfg_file.get("pde", "bc_type", fallback=base_lsm_config.bc_type),
+            )
+            base_lsm = PDEConfig(model_type="lsm", lsm_config=lsm_cfg)
+    else:
+        base_lsm = PDEConfig(model_type="lsm", lsm_config=base_lsm_config)
 
     domain = Domain(
         x_min=base_domain.x_min if args.x_min is None else args.x_min,
@@ -126,28 +164,23 @@ def main() -> None:
         n_interior=base_train.n_interior if args.n_interior is None else args.n_interior,
         n_boundary=base_train.n_boundary if args.n_boundary is None else args.n_boundary,
         n_initial=base_train.n_initial if args.n_initial is None else args.n_initial,
-        lr=base_train.lr if args.lr is None else args.lr,
-        epochs=base_train.epochs if args.epochs is None else args.epochs,
+        lr_adam=base_train.lr_adam if args.lr_adam is None else args.lr_adam,
+        epochs_adam=base_train.epochs_adam if args.epochs_adam is None else args.epochs_adam,
+        epochs_lbfgs=base_train.epochs_lbfgs if args.epochs_lbfgs is None else args.epochs_lbfgs,
+        lr_lbfgs=base_train.lr_lbfgs if args.lr_lbfgs is None else args.lr_lbfgs,
         weight_pde=base_train.weight_pde if args.weight_pde is None else args.weight_pde,
         weight_bc=base_train.weight_bc if args.weight_bc is None else args.weight_bc,
         weight_ic=base_train.weight_ic if args.weight_ic is None else args.weight_ic,
     )
-    lsm_cfg = PDEConfig(
-        center=(
-            base_lsm.center[0] if args.center_x is None else args.center_x,
-            base_lsm.center[1] if args.center_y is None else args.center_y,
-        ),
-        radius=base_lsm.radius if args.radius is None else args.radius,
-        speed=base_lsm.speed,
-        epsilon=base_lsm.epsilon,
-        vx=base_lsm.vx if args.vx is None else args.vx,
-        vy=base_lsm.vy if args.vy is None else args.vy,
-        r0=base_lsm.r0,
-        cf=base_lsm.cf,
-        bc_type=base_lsm.bc_type,
-    )
+    pde_cfg = base_lsm
 
-    cfg = ExperimentConfig(domain=domain, train=train_cfg, lsm=lsm_cfg)
+    # Set PINN output size based on model type
+    # LSM: 1 output (level set function)
+    # Asensio: 2 outputs (temperature and fuel fraction)
+    output_size = 2 if pde_cfg.model_type.lower() == "asensio" else 1
+    model_cfg = MLPConfig(layers=(3, 64, 64, 64, output_size))
+
+    cfg = ExperimentConfig(domain=domain, train=train_cfg, model=model_cfg, pde=pde_cfg)
     
     # Create timestamped output directory
     timestamp = datetime.now().strftime("%Y%m%d%H%M")
@@ -158,8 +191,13 @@ def main() -> None:
     write_config_log(cfg, out_dir)
 
     model = train(cfg)
-    plot_phi_comparison(model, cfg.domain, out_dir / "phi_comparison.png", lsm=cfg.lsm)
-    plot_perimeter_comparison(model, cfg.domain, out_dir / "perimeter_comparison.png", lsm=cfg.lsm)
+    
+    if cfg.pde.model_type.lower() == "asensio":
+        plot_temperature_comparison(model, cfg.domain, out_dir / "temperature_comparison.png", pde_cfg=cfg.pde)
+        plot_fuel_fraction_comparison(model, cfg.domain, out_dir / "fuel_fraction_comparison.png", pde_cfg=cfg.pde)
+    else:
+        plot_phi_comparison(model, cfg.domain, out_dir / "phi_comparison.png", lsm=cfg.pde)
+        plot_perimeter_comparison(model, cfg.domain, out_dir / "perimeter_comparison.png", lsm=cfg.pde)
     print(f"\nResults saved to: {out_dir}")
 
 

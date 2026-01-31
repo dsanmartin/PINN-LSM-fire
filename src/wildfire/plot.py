@@ -251,3 +251,132 @@ def plot_phi_comparison(
     else:
         plt.show()
     plt.close(fig)
+
+
+def plot_temperature_comparison(
+    model: torch.nn.Module,
+    domain: Domain,
+    path: str | Path | None = None,
+    cfg: PlotConfig | None = None,
+    pde_cfg: PDEConfig | None = None,
+) -> None:
+    """Plot initial and final temperature fields for Asensio model."""
+    cfg = cfg or PlotConfig()
+    pde_cfg = pde_cfg or PDEConfig()
+    pde = PDE(pde_cfg)
+    device = next(model.parameters()).device
+
+    xyt_init = _grid(domain, cfg.resolution, domain.t_min, torch.device("cpu"))
+    ic = pde.initial_condition(xyt_init)
+    T_init = ic[:, 0].reshape(cfg.resolution, cfg.resolution)
+
+    xyt_final = _grid(domain, cfg.resolution, domain.t_max, device)
+    with torch.no_grad():
+        model_output = model(xyt_final)
+        T_final = model_output[:, 0].reshape(cfg.resolution, cfg.resolution)
+
+    field_init = T_init.detach().cpu().numpy()
+    field_final = T_final.detach().cpu().numpy()
+    vmin = float(min(field_init.min(), field_final.min()))
+    vmax = float(max(field_init.max(), field_final.max()))
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True, sharey=True)
+    im0 = axes[0].imshow(
+        field_init,
+        origin="lower",
+        extent=[domain.x_min, domain.x_max, domain.y_min, domain.y_max],
+        cmap=cfg.cmap,
+        aspect="auto",
+        vmin=vmin,
+        vmax=vmax,
+    )
+    axes[0].set_title(r"$T(x,y,0)$ [K]")
+    axes[0].set_xlabel(r"$x$")
+    axes[0].set_ylabel(r"$y$")
+
+    im1 = axes[1].imshow(
+        field_final,
+        origin="lower",
+        extent=[domain.x_min, domain.x_max, domain.y_min, domain.y_max],
+        cmap=cfg.cmap,
+        aspect="auto",
+        vmin=vmin,
+        vmax=vmax,
+    )
+    axes[1].set_title(r"$T(x,y,t_{\text{max}})$ [K]")
+    axes[1].set_xlabel(r"$x$")
+
+    fig.colorbar(im1, ax=axes.ravel().tolist(), shrink=0.85)
+
+    if path is not None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+    else:
+        plt.show()
+    plt.close(fig)
+
+
+def plot_fuel_fraction_comparison(
+    model: torch.nn.Module,
+    domain: Domain,
+    path: str | Path | None = None,
+    cfg: PlotConfig | None = None,
+    pde_cfg: PDEConfig | None = None,
+) -> None:
+    """Plot initial and final fuel fraction fields for Asensio model."""
+    cfg = cfg or PlotConfig()
+    pde_cfg = pde_cfg or PDEConfig()
+    pde = PDE(pde_cfg)
+    device = next(model.parameters()).device
+
+    # For Asensio, get initial fuel fraction from initial condition
+    xyt_init = _grid(domain, cfg.resolution, domain.t_min, torch.device("cpu"))
+    ic = pde.initial_condition(xyt_init)
+    Y_init = ic[:, 1].reshape(cfg.resolution, cfg.resolution).detach().cpu().numpy()
+
+    xyt_final = _grid(domain, cfg.resolution, domain.t_max, device)
+    with torch.no_grad():
+        model_output = model(xyt_final)
+        Y_final = model_output[:, 1].reshape(cfg.resolution, cfg.resolution)
+
+    field_init = Y_init
+    field_final = Y_final.detach().cpu().numpy()
+    vmin = float(min(field_init.min(), field_final.min()))
+    vmax = float(max(field_init.max(), field_final.max()))
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharex=True, sharey=True)
+    im0 = axes[0].imshow(
+        field_init,
+        origin="lower",
+        extent=[domain.x_min, domain.x_max, domain.y_min, domain.y_max],
+        cmap=cfg.cmap,
+        aspect="auto",
+        vmin=vmin,
+        vmax=vmax,
+    )
+    axes[0].set_title(r"$Y(x,y,0)$ [Fuel Fraction]")
+    axes[0].set_xlabel(r"$x$")
+    axes[0].set_ylabel(r"$y$")
+
+    im1 = axes[1].imshow(
+        field_final,
+        origin="lower",
+        extent=[domain.x_min, domain.x_max, domain.y_min, domain.y_max],
+        cmap=cfg.cmap,
+        aspect="auto",
+        vmin=vmin,
+        vmax=vmax,
+    )
+    axes[1].set_title(r"$Y(x,y,t_{\text{max}})$ [Fuel Fraction]")
+    axes[1].set_xlabel(r"$x$")
+
+    fig.colorbar(im1, ax=axes.ravel().tolist(), shrink=0.85)
+
+    if path is not None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+    else:
+        plt.show()
+    plt.close(fig)
