@@ -100,10 +100,18 @@ def loss_terms(model: PINN, pde: PDE, domain: Domain, cfg: TrainConfig, device: 
     return loss, metrics
 
 
-def train(cfg: ExperimentConfig, device: torch.device | None = None) -> PINN:
+def train(cfg: ExperimentConfig, device: torch.device | None = None) -> tuple[PINN, dict[str, list[float]]]:
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = PINN(cfg.model).to(device)
     pde = PDE(cfg.pde)
+    
+    # Initialize loss history tracking
+    loss_history = {
+        "loss": [],
+        "loss_pde": [],
+        "loss_bc": [],
+        "loss_ic": [],
+    }
     
     # Get training parameters for each optimizer
     n_adam = cfg.train.epochs_adam
@@ -121,6 +129,12 @@ def train(cfg: ExperimentConfig, device: torch.device | None = None) -> PINN:
             loss, metrics = loss_terms(model, pde, cfg.domain, cfg.train, device)
             loss.backward()
             optimizer_adam.step()
+            
+            # Track loss at every epoch
+            loss_history["loss"].append(metrics["loss"])
+            loss_history["loss_pde"].append(metrics["loss_pde"])
+            loss_history["loss_bc"].append(metrics["loss_bc"])
+            loss_history["loss_ic"].append(metrics["loss_ic"])
 
             if epoch % 500 == 0 or epoch == 1:
                 print(
@@ -148,15 +162,20 @@ def train(cfg: ExperimentConfig, device: torch.device | None = None) -> PINN:
             
             optimizer_lbfgs.step(closure)
             
+            # Compute metrics for tracking and display
+            _, metrics = loss_terms(model, pde, cfg.domain, cfg.train, device)
+            loss_history["loss"].append(metrics["loss"])
+            loss_history["loss_pde"].append(metrics["loss_pde"])
+            loss_history["loss_bc"].append(metrics["loss_bc"])
+            loss_history["loss_ic"].append(metrics["loss_ic"])
+            
             if epoch % 100 == 0 or epoch == 1:
-                # Compute metrics for display (gradients needed for residual computation)
-                _, metrics = loss_terms(model, pde, cfg.domain, cfg.train, device)
                 print(
                     f"Epoch {n_adam + epoch:05d} | loss={metrics['loss']:.4e} "
                     f"pde={metrics['loss_pde']:.4e} bc={metrics['loss_bc']:.4e} ic={metrics['loss_ic']:.4e}"
                 )
 
-    return model
+    return model, loss_history
 
 
 def save_model(model: nn.Module, path: str) -> None:

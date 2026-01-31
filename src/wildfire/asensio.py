@@ -7,6 +7,10 @@ import torch
 from .utils import gradient, split_xyz_t
 
 
+# Physical constants
+STEFAN_BOLTZMANN = 5.67e-8  # Stefan-Boltzmann constant [W/(m^2 K^4)]
+
+
 @dataclass
 class AsensioConfigBK:
     T0: float = 300.0 # Ambient temperature
@@ -15,14 +19,12 @@ class AsensioConfigBK:
     radius: float = 0.5 # Radius of initial heat source
     vx: float = 0.0 # Wind velocity in x-direction
     vy: float = 0.0 # Wind velocity in y-direction
-    k: float = 0.5  # Thermal conductivity
-    E: float = 80000.0  # Activation energy
-    R: float = 8.314    # Universal gas constant
+    k: float = 0.02476  # Thermal conductivity
+    T_act: float = 18000.0  # Activation temperature
     Y_f: float = 0.1    # Fuel consumption rate
-    SIGMA: float = 5.67e-8  # Stefan-Boltzmann constant
     delta: float = 0.1  # Thickness of the combustible layer
     T_ign: float = 500.0  # Ignition temperature
-    H_R: float = 2500.0  # Heat of reaction
+    H_C: float = 21e6  # Heat of combustion
     A: float = 1e9  # Pre-exponential factor
     bc_type: str = "periodic"
 
@@ -30,6 +32,8 @@ class AsensioConfigBK:
 class AsensioConfig:
     T0: float = 1.0 # Ambient temperature
     T_inf: float = 4 # Peak temperature
+    T_ign: float = 2  # Ignition temperature
+    T_act: float = 1  # Activation temperature
     center: tuple[float, float] = (5, 5) # Center of initial heat source
     radius: float = 2 # Radius of initial heat source
     vx: float = 0.0 # Wind velocity in x-direction
@@ -38,10 +42,8 @@ class AsensioConfig:
     E: float = 1  # Activation energy
     R: float = 1    # Universal gas constant
     Y_f: float = 1   # Fuel consumption rate
-    SIGMA: float = 1  # Stefan-Boltzmann constant
     delta: float = 1  # Thickness of the combustible layer
-    T_ign: float = 500.0  # Ignition temperature
-    H_R: float = 1  # Heat of reaction
+    H_C: float = 1  # Heat of combustion
     A: float = 1  # Pre-exponential factor
     bc_type: str = "periodic"
 
@@ -74,9 +76,9 @@ class Asensio:
         heaviside_approx = torch.sigmoid(100 * (T - self.config.T_ign))
         # Clamp T to avoid extreme values in exponential
         T_safe = torch.clamp(T, min=300.0, max=2000.0)
-        reaction_rate = torch.exp(-self.config.E / (self.config.R * T_safe)) * heaviside_approx * self.config.H_R * self.config.A
+        reaction_rate = torch.exp(-self.config.T_act / T_safe) * heaviside_approx * self.config.H_C * self.config.A
         # Diffusion term with radiative heating
-        diffusion = torch.sum((self.config.k + 4 * self.config.delta * self.config.SIGMA * T**3) * grad_T, dim=1, keepdim=True)
+        diffusion = torch.sum((self.config.k + 4 * self.config.delta * STEFAN_BOLTZMANN * T**3) * grad_T, dim=1, keepdim=True)
         T_new = T_t + self.config.vx * grad_T[:, 0:1] + self.config.vy * grad_T[:, 1:2] - diffusion - self.config.Y_f * Y * reaction_rate
         Y_new = Y_t + self.config.Y_f * Y * reaction_rate
         # Clamp Y_new to ensure fuel stays in [0, 1]
@@ -90,7 +92,7 @@ class Asensio:
         T0 = self.config.T0
         T_inf = self.config.T_inf
         T_ic = T0 + (T_inf - T0) * torch.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * self.config.radius**2))
-        Y_ic = torch.ones_like(T_ic)
+        Y_ic = torch.ones_like(T_ic) * 0
         return torch.cat([T_ic, Y_ic], dim=1)
 
     def boundary_condition(self, xyt: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:

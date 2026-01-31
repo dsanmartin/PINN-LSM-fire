@@ -380,3 +380,54 @@ def plot_fuel_fraction_comparison(
     else:
         plt.show()
     plt.close(fig)
+
+
+def plot_training_loss(
+    loss_history: dict[str, list[float]],
+    path: str | Path | None = None,
+) -> None:
+    """Plot training loss components: total, PDE, BC, and IC losses.
+    
+    Args:
+        loss_history: Dictionary containing loss history with keys 'loss', 'loss_pde', 'loss_bc', 'loss_ic'
+        path: Optional path to save the figure
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+    
+    # Total loss
+    axes[0, 0].semilogy(loss_history["loss"], linewidth=2, color="black")
+    axes[0, 0].set_xlabel("Epoch")
+    axes[0, 0].set_ylabel("Loss")
+    axes[0, 0].set_title("Total Loss")
+    axes[0, 0].grid(True, alpha=0.3)
+    
+    # PDE loss
+    axes[0, 1].semilogy(loss_history["loss_pde"], linewidth=2, color="blue")
+    axes[0, 1].set_xlabel("Epoch")
+    axes[0, 1].set_ylabel("Loss")
+    axes[0, 1].set_title("PDE Residual Loss")
+    axes[0, 1].grid(True, alpha=0.3)
+    
+    # BC loss
+    axes[1, 0].semilogy(loss_history["loss_bc"], linewidth=2, color="green")
+    axes[1, 0].set_xlabel("Epoch")
+    axes[1, 0].set_ylabel("Loss")
+    axes[1, 0].set_title("Boundary Condition Loss")
+    axes[1, 0].grid(True, alpha=0.3)
+    
+    # IC loss
+    axes[1, 1].semilogy(loss_history["loss_ic"], linewidth=2, color="red")
+    axes[1, 1].set_xlabel("Epoch")
+    axes[1, 1].set_ylabel("Loss")
+    axes[1, 1].set_title("Initial Condition Loss")
+    axes[1, 1].grid(True, alpha=0.3)
+    
+    fig.tight_layout()
+    
+    if path is not None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+    else:
+        plt.show()
+    plt.close(fig)

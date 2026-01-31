@@ -1,8 +1,12 @@
 # Physics-Informed Neural Networks for wildfire simulation
 
-At the moment, we use only the Level Set Method (LSM) to track the fire perimeter, but we plan to add the conservation equations. Some progress with conservation equations in [THIS REPO](https://github.com/dsanmartin/pinn-examples).
+At the moment, we have the following models implemented:
+- Level Set method (LSM) to track the fire perimeter.
+- Asensio & Ferragut mode. Energy equation + simplified fuel.
 
 ## Mathematical Formulation
+
+### Leve Set Method
 
 The Level Set Method represents the fire front as the zero level set of a function $\phi(x, y, t)$:
 - $\phi < 0$: burning region
@@ -18,6 +22,31 @@ $$\frac{\partial \phi}{\partial t} + v_x \frac{\partial \phi}{\partial x} + v_y 
 where:
 - $v_x, v_y$: advection velocity components (e.g., wind)
 
+
+### Asensio & Ferragut model
+
+The Asensio & Ferragut model simulates wildfire propagation using coupled temperature and fuel equations with radiative heating effects.
+
+**Temperature equation:**
+$$\frac{\partial T}{\partial t} + \mathbf{V} \cdot \nabla T = \nabla \cdot \left((k + 4\delta\sigma T^3) \nabla T\right) + S(T, Y)$$
+
+**Fuel equation:**
+$$\frac{\partial Y}{\partial t} = -Y_{\text{f}} Y H(T - T_{\text{ign}}) \exp\left(-\frac{T_{\text{act}}}{T}\right)$$
+
+where:
+- $T(x, y, t)$: Temperature field
+- $Y(x, y, t)$: Fuel fraction (0 = no fuel, 1 = fully fueled)
+- $\mathbf{V} = (v_x, v_y)$: Wind velocity field
+- $k$: Thermal conductivity
+- $\sigma$: Stefan-Boltzmann constant
+- $\delta$: Thickness of the combustible layer
+- $T_{\text{ign}}$: Ignition temperature threshold
+- $T_{\text{act}}$: Activation temperature
+- $Y_{\text{f}}$: Fuel consumption rate
+- $H(\cdot)$: Heaviside step function (approximated with sigmoid)
+- $S(T, Y)$: Heat source term from fuel combustion
+
+If you set $\delta=0$, $S(x,y,t)=0$, $Y(x,y,t)=0$, $\forall x,y,t$, a diffusion-convection equation is solved.
 
 ### Physics-Informed Neural Network (PINN)
 

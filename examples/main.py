@@ -5,7 +5,7 @@ from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
 
-from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison, plot_temperature_comparison, plot_fuel_fraction_comparison
+from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison, plot_temperature_comparison, plot_fuel_fraction_comparison, plot_training_loss
 from wildfire.logging_utils import write_config_log
 from wildfire.pde import PDEConfig
 from wildfire.lsm import LSMConfig
@@ -123,13 +123,12 @@ def main() -> None:
                 radius=cfg_file.getfloat("initial", "radius", fallback=base_asensio_config.radius),
                 vx=cfg_file.getfloat("pde", "vx", fallback=base_asensio_config.vx),
                 vy=cfg_file.getfloat("pde", "vy", fallback=base_asensio_config.vy),
-                E=cfg_file.getfloat("pde", "E", fallback=base_asensio_config.E),
-                R=cfg_file.getfloat("pde", "R", fallback=base_asensio_config.R),
+                k=cfg_file.getfloat("pde", "k", fallback=base_asensio_config.k),
+                T_act=cfg_file.getfloat("pde", "T_act", fallback=base_asensio_config.T_act),
                 Y_f=cfg_file.getfloat("pde", "Y_f", fallback=base_asensio_config.Y_f),
-                SIGMA=cfg_file.getfloat("pde", "SIGMA", fallback=base_asensio_config.SIGMA),
                 delta=cfg_file.getfloat("pde", "delta", fallback=base_asensio_config.delta),
                 T_ign=cfg_file.getfloat("pde", "T_ign", fallback=base_asensio_config.T_ign),
-                H_R=cfg_file.getfloat("pde", "H_R", fallback=base_asensio_config.H_R),
+                H_C=cfg_file.getfloat("pde", "H_C", fallback=base_asensio_config.H_C),
                 bc_type=cfg_file.get("pde", "bc_type", fallback=base_asensio_config.bc_type),
             )
             base_lsm = PDEConfig(model_type="asensio", asensio_config=asensio_cfg)
@@ -190,7 +189,10 @@ def main() -> None:
 
     write_config_log(cfg, out_dir)
 
-    model = train(cfg)
+    model, loss_history = train(cfg)
+    
+    # Save training loss plot
+    plot_training_loss(loss_history, out_dir / "training_loss.png")
     
     if cfg.pde.model_type.lower() == "asensio":
         plot_temperature_comparison(model, cfg.domain, out_dir / "temperature_comparison.png", pde_cfg=cfg.pde)

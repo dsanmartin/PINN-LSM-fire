@@ -52,7 +52,7 @@ class TrainConfig:
     epochs_adam: int = 5000  # If set, use Adam for this many epochs
     epochs_lbfgs: int = 1000  # If set, use LBFGS for this many epochs after Adam
     lr_adam: float = 1e-1  # Learning rate for Adam, falls back to lr if not set
-    lr_lbfgs: float = 1.0  # Learning rate for LBFGS
+    lr_lbfgs: float = 1e-1  # Learning rate for LBFGS
     weight_pde: float = 1.0
     weight_bc: float = 1.0
     weight_ic: float = 1.0
