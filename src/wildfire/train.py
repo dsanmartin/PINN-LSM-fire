@@ -26,9 +26,43 @@ def loss_terms(model: PINN, pde: LevelSetPDE, domain: Domain, cfg: TrainConfig, 
     res = pde.residual(xyt_interior, model)
     loss_pde = torch.mean(res**2)
 
-    phi_b = model(xyt_boundary)
-    target_b = pde.boundary_condition(xyt_boundary)
-    loss_bc = torch.mean((phi_b - target_b) ** 2)
+    bc_type = pde.config.bc_type.lower().strip()
+    if bc_type == "neumann":
+        xyt_boundary.requires_grad_(True)
+        phi_b = model(xyt_boundary)
+        grads_b = torch.autograd.grad(
+            phi_b,
+            xyt_boundary,
+            grad_outputs=torch.ones_like(phi_b),
+            create_graph=True,
+            retain_graph=True,
+            only_inputs=True,
+        )[0]
+        n_side = xyt_boundary.shape[0] // 4
+        nx = torch.cat(
+            [
+                torch.full((n_side, 1), -1.0, device=device),
+                torch.full((n_side, 1), 1.0, device=device),
+                torch.zeros((n_side, 1), device=device),
+                torch.zeros((n_side, 1), device=device),
+            ],
+            dim=0,
+        )
+        ny = torch.cat(
+            [
+                torch.zeros((n_side, 1), device=device),
+                torch.zeros((n_side, 1), device=device),
+                torch.full((n_side, 1), -1.0, device=device),
+                torch.full((n_side, 1), 1.0, device=device),
+            ],
+            dim=0,
+        )
+        dn = grads_b[:, 0:1] * nx + grads_b[:, 1:2] * ny
+        loss_bc = torch.mean(dn**2)
+    else:
+        phi_b = model(xyt_boundary)
+        target_b = pde.boundary_condition(xyt_boundary, model)
+        loss_bc = torch.mean((phi_b - target_b) ** 2)
 
     phi_i = model(xyt_initial)
     target_i = pde.initial_condition(xyt_initial)

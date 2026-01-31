@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison
+from wildfire.logging_utils import write_config_log
 from wildfire.lsm import LevelSetConfig
 from wildfire.train import ExperimentConfig, train
 from wildfire.utils import Domain, TrainConfig
@@ -95,6 +96,9 @@ def main() -> None:
             epsilon=base_lsm.epsilon,
             vx=base_lsm.vx,
             vy=base_lsm.vy,
+            r0=base_lsm.r0,
+            cf=base_lsm.cf,
+            bc_type=base_lsm.bc_type,
         )
 
     if cfg_file is not None and cfg_file.has_section("lsm"):
@@ -105,6 +109,9 @@ def main() -> None:
             epsilon=cfg_file.getfloat("lsm", "epsilon", fallback=base_lsm.epsilon),
             vx=cfg_file.getfloat("lsm", "vx", fallback=base_lsm.vx),
             vy=cfg_file.getfloat("lsm", "vy", fallback=base_lsm.vy),
+            r0=cfg_file.getfloat("lsm", "r0", fallback=base_lsm.r0),
+            cf=cfg_file.getfloat("lsm", "cf", fallback=base_lsm.cf),
+            bc_type=cfg_file.get("lsm", "bc_type", fallback=base_lsm.bc_type),
         )
 
     domain = Domain(
@@ -135,6 +142,9 @@ def main() -> None:
         epsilon=base_lsm.epsilon,
         vx=base_lsm.vx if args.vx is None else args.vx,
         vy=base_lsm.vy if args.vy is None else args.vy,
+        r0=base_lsm.r0,
+        cf=base_lsm.cf,
+        bc_type=base_lsm.bc_type,
     )
 
     cfg = ExperimentConfig(domain=domain, train=train_cfg, lsm=lsm_cfg)
@@ -144,50 +154,9 @@ def main() -> None:
     base_out_dir = Path(__file__).resolve().parent / "outputs"
     out_dir = base_out_dir / timestamp
     out_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Prepare configuration text
-    config_text = f"""{'='*60}
-Experiment Configuration
-{'='*60}
-Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
-Domain:
-  x: [{cfg.domain.x_min}, {cfg.domain.x_max}]
-  y: [{cfg.domain.y_min}, {cfg.domain.y_max}]
-  t: [{cfg.domain.t_min}, {cfg.domain.t_max}]
+    write_config_log(cfg, out_dir)
 
-Training:
-  n_interior: {cfg.train.n_interior}
-  n_boundary: {cfg.train.n_boundary}
-  n_initial: {cfg.train.n_initial}
-  lr: {cfg.train.lr}
-  epochs: {cfg.train.epochs}
-  weight_pde: {cfg.train.weight_pde}
-  weight_bc: {cfg.train.weight_bc}
-  weight_ic: {cfg.train.weight_ic}
-
-Initial condition:
-  center: ({cfg.lsm.center[0]}, {cfg.lsm.center[1]})
-  radius: {cfg.lsm.radius}
-
-Level Set Method:
-  speed: {cfg.lsm.speed}
-  velocity: ({cfg.lsm.vx}, {cfg.lsm.vy})
-  epsilon: {cfg.lsm.epsilon}
-
-PINN Model:
-  layers: {cfg.model.layers}
-  activation: {cfg.model.activation}
-{'='*60}
-"""
-    
-    # Print and save configuration
-    print(config_text)
-    log_path = out_dir / "config.log"
-    with open(log_path, "w") as f:
-        f.write(config_text)
-    print(f"Configuration saved to: {log_path}\n")
-    
     model = train(cfg)
     plot_phi_comparison(model, cfg.domain, out_dir / "phi_comparison.png", lsm=cfg.lsm)
     plot_perimeter_comparison(model, cfg.domain, out_dir / "perimeter_comparison.png", lsm=cfg.lsm)
