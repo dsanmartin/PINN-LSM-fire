@@ -8,26 +8,28 @@ from .utils import gradient, split_xyz_t
 
 
 @dataclass
-class LevelSetConfig:
+class PDEConfig:
     speed: float = 1.0
     epsilon: float = 1e-6
     center: tuple[float, float] = (0.5, 0.5)
     radius: float = 0.15
     vx: float = 0.0
     vy: float = 0.0
-    r0: float = 0.165 
-    cf: float = 3.24 
+    r0: float = 0.165
+    cf: float = 3.24
     bc_type: str = "dirichlet"
 
 
-class LevelSetPDE:
-    """Level Set equation: phi_t + F * |grad(phi)| = 0.
+class PDE:
+    """
+    PDE definition.
+    At the moment, solving the level set equation for wildfire spread
 
-    This version uses constant speed F; extend with a callable speed field if needed.
+    Level Set equation: phi_t + U \cdot grad(phi) = 0.
     """
 
-    def __init__(self, config: LevelSetConfig | None = None):
-        self.config = config or LevelSetConfig()
+    def __init__(self, config: PDEConfig | None = None):
+        self.config = config or PDEConfig()
 
     def residual_v1(self, xyt: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
         xyt.requires_grad_(True)
@@ -38,7 +40,7 @@ class LevelSetPDE:
         grad_norm = torch.sqrt(torch.sum(grad_phi**2, dim=1, keepdim=True) + self.config.epsilon)
         advect = self.config.vx * grad_phi[:, 0:1] + self.config.vy * grad_phi[:, 1:2]
         return phi_t + advect + self.config.speed * grad_norm
-    
+
     def residual(self, xyt: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
         xyt.requires_grad_(True)
         phi = phi(xyt)
@@ -61,9 +63,6 @@ class LevelSetPDE:
         return torch.where(dist <= self.config.radius, torch.full_like(dist, -1.0), torch.full_like(dist, 1.0))
 
     def boundary_condition(self, xyt: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
-        # Zero Neumann boundary condition via mirror can be enforced by PDE penalty only.
-        # Here we simply set phi to be the initial condition for boundary points.
-
         bc_type = self.config.bc_type.lower().strip()
         if bc_type == "periodic":
             # Periodic boundary condition: enforce phi(x_min, y, t) == phi(x_max, y, t)

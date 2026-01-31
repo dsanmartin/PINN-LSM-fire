@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from matplotlib.lines import Line2D
 
-from .lsm import LevelSetConfig, LevelSetPDE
+from .pde import PDE, PDEConfig
 from .utils import Domain
 
 
@@ -85,11 +85,11 @@ def plot_initial_condition(
     domain: Domain,
     path: str | Path | None = None,
     cfg: PlotConfig | None = None,
-    lsm: LevelSetConfig | None = None,
+    lsm: PDEConfig | None = None,
 ) -> None:
     cfg = cfg or PlotConfig()
-    lsm = lsm or LevelSetConfig()
-    pde = LevelSetPDE(lsm)
+    lsm = lsm or PDEConfig()
+    pde = PDE(lsm)
     device = torch.device("cpu")
     xyt = _grid(domain, cfg.resolution, domain.t_min, device)
     phi = pde.initial_condition(xyt).reshape(cfg.resolution, cfg.resolution)
@@ -116,11 +116,11 @@ def plot_initial_perimeter(
     domain: Domain,
     path: str | Path | None = None,
     cfg: PlotConfig | None = None,
-    lsm: LevelSetConfig | None = None,
+    lsm: PDEConfig | None = None,
 ) -> None:
     cfg = cfg or PlotConfig()
-    lsm = lsm or LevelSetConfig()
-    pde = LevelSetPDE(lsm)
+    lsm = lsm or PDEConfig()
+    pde = PDE(lsm)
     device = torch.device("cpu")
     xyt = _grid(domain, cfg.resolution, domain.t_min, device)
     phi = pde.initial_condition(xyt).reshape(cfg.resolution, cfg.resolution)
@@ -148,11 +148,11 @@ def plot_perimeter_comparison(
     domain: Domain,
     path: str | Path | None = None,
     cfg: PlotConfig | None = None,
-    lsm: LevelSetConfig | None = None,
+    lsm: PDEConfig | None = None,
 ) -> None:
     cfg = cfg or PlotConfig()
-    lsm = lsm or LevelSetConfig()
-    pde = LevelSetPDE(lsm)
+    lsm = lsm or PDEConfig()
+    pde = PDE(lsm)
     device = next(model.parameters()).device
 
     xyt_init = _grid(domain, cfg.resolution, domain.t_min, torch.device("cpu"))
@@ -197,11 +197,11 @@ def plot_phi_comparison(
     domain: Domain,
     path: str | Path | None = None,
     cfg: PlotConfig | None = None,
-    lsm: LevelSetConfig | None = None,
+    lsm: PDEConfig | None = None,
 ) -> None:
     cfg = cfg or PlotConfig()
-    lsm = lsm or LevelSetConfig()
-    pde = LevelSetPDE(lsm)
+    lsm = lsm or PDEConfig()
+    pde = PDE(lsm)
     device = next(model.parameters()).device
 
     xyt_init = _grid(domain, cfg.resolution, domain.t_min, torch.device("cpu"))

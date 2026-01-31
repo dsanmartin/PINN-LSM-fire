@@ -31,7 +31,7 @@ Initial condition:
   center: ({cfg.lsm.center[0]}, {cfg.lsm.center[1]})
   radius: {cfg.lsm.radius}
 
-Level Set Method:
+PDE:
   speed: {cfg.lsm.speed}
   velocity: ({cfg.lsm.vx}, {cfg.lsm.vy})
   epsilon: {cfg.lsm.epsilon}

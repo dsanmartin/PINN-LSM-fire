@@ -10,12 +10,12 @@ from .plot import (
 	plot_perimeter_comparison,
 	plot_phi_comparison,
 )
-from .lsm import LevelSetPDE, LevelSetConfig
+from .pde import PDE, PDEConfig
 
 __all__ = [
 	"PINN",
-	"LevelSetPDE",
-	"LevelSetConfig",
+	"PDE",
+	"PDEConfig",
 	"plot_initial_condition",
 	"plot_final_result",
 	"plot_initial_perimeter",

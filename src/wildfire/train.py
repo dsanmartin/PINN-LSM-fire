@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import torch
 import torch.nn as nn
 
-from .lsm import LevelSetConfig, LevelSetPDE
+from .pde import PDE, PDEConfig
 from .pinn import MLPConfig, PINN
 from .utils import Domain, TrainConfig
 
@@ -15,10 +15,10 @@ class ExperimentConfig:
     domain: Domain = field(default_factory=Domain)
     train: TrainConfig = field(default_factory=TrainConfig)
     model: MLPConfig = field(default_factory=MLPConfig)
-    lsm: LevelSetConfig = field(default_factory=LevelSetConfig)
+    lsm: PDEConfig = field(default_factory=PDEConfig)
 
 
-def loss_terms(model: PINN, pde: LevelSetPDE, domain: Domain, cfg: TrainConfig, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:
+def loss_terms(model: PINN, pde: PDE, domain: Domain, cfg: TrainConfig, device: torch.device) -> tuple[torch.Tensor, dict[str, float]]:
     xyt_interior = domain.sample_interior(cfg.n_interior, device)
     xyt_boundary = domain.sample_boundary(cfg.n_boundary, device)
     xyt_initial = domain.sample_initial(cfg.n_initial, device)
@@ -81,7 +81,7 @@ def loss_terms(model: PINN, pde: LevelSetPDE, domain: Domain, cfg: TrainConfig, 
 def train(cfg: ExperimentConfig, device: torch.device | None = None) -> PINN:
     device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = PINN(cfg.model).to(device)
-    pde = LevelSetPDE(cfg.lsm)
+    pde = PDE(cfg.lsm)
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.train.lr)
 
     for epoch in range(1, cfg.train.epochs + 1):

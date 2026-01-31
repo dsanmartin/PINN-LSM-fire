@@ -7,7 +7,7 @@ from pathlib import Path
 
 from wildfire.plot import plot_perimeter_comparison, plot_phi_comparison
 from wildfire.logging_utils import write_config_log
-from wildfire.lsm import LevelSetConfig
+from wildfire.pde import PDEConfig
 from wildfire.train import ExperimentConfig, train
 from wildfire.utils import Domain, TrainConfig
 
@@ -60,7 +60,7 @@ def main() -> None:
 
     base_domain = Domain()
     base_train = TrainConfig()
-    base_lsm = LevelSetConfig()
+    base_lsm = PDEConfig()
     cfg_file = _read_config(args.config)
 
     if cfg_file is not None and cfg_file.has_section("domain"):
@@ -86,7 +86,7 @@ def main() -> None:
         )
 
     if cfg_file is not None and cfg_file.has_section("initial"):
-        base_lsm = LevelSetConfig(
+        base_lsm = PDEConfig(
             center=(
                 cfg_file.getfloat("initial", "center_x", fallback=base_lsm.center[0]),
                 cfg_file.getfloat("initial", "center_y", fallback=base_lsm.center[1]),
@@ -101,17 +101,17 @@ def main() -> None:
             bc_type=base_lsm.bc_type,
         )
 
-    if cfg_file is not None and cfg_file.has_section("lsm"):
-        base_lsm = LevelSetConfig(
+    if cfg_file is not None and cfg_file.has_section("pde"):
+        base_lsm = PDEConfig(
             center=base_lsm.center,
             radius=base_lsm.radius,
-            speed=cfg_file.getfloat("lsm", "speed", fallback=base_lsm.speed),
-            epsilon=cfg_file.getfloat("lsm", "epsilon", fallback=base_lsm.epsilon),
-            vx=cfg_file.getfloat("lsm", "vx", fallback=base_lsm.vx),
-            vy=cfg_file.getfloat("lsm", "vy", fallback=base_lsm.vy),
-            r0=cfg_file.getfloat("lsm", "r0", fallback=base_lsm.r0),
-            cf=cfg_file.getfloat("lsm", "cf", fallback=base_lsm.cf),
-            bc_type=cfg_file.get("lsm", "bc_type", fallback=base_lsm.bc_type),
+            speed=cfg_file.getfloat("pde", "speed", fallback=base_lsm.speed),
+            epsilon=cfg_file.getfloat("pde", "epsilon", fallback=base_lsm.epsilon),
+            vx=cfg_file.getfloat("pde", "vx", fallback=base_lsm.vx),
+            vy=cfg_file.getfloat("pde", "vy", fallback=base_lsm.vy),
+            r0=cfg_file.getfloat("pde", "r0", fallback=base_lsm.r0),
+            cf=cfg_file.getfloat("pde", "cf", fallback=base_lsm.cf),
+            bc_type=cfg_file.get("pde", "bc_type", fallback=base_lsm.bc_type),
         )
 
     domain = Domain(
@@ -132,7 +132,7 @@ def main() -> None:
         weight_bc=base_train.weight_bc if args.weight_bc is None else args.weight_bc,
         weight_ic=base_train.weight_ic if args.weight_ic is None else args.weight_ic,
     )
-    lsm_cfg = LevelSetConfig(
+    lsm_cfg = PDEConfig(
         center=(
             base_lsm.center[0] if args.center_x is None else args.center_x,
             base_lsm.center[1] if args.center_y is None else args.center_y,
